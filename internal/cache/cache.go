@@ -81,7 +81,6 @@ type Cache struct {
 	hits      int64
 	misses    int64
 	evictions int64
-	lastStats Stats // cached snapshot; intentionally read after unlocking in the injected baseline
 }
 
 // New creates a cache with the given capacity and policy. capacity must be >= 1.
@@ -200,8 +199,9 @@ type Stats struct {
 // live entry count after the sweep.
 func (c *Cache) Stats() Stats {
 	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.sweepExpiredLocked()
-	c.lastStats = Stats{
+	return Stats{
 		Capacity:  c.capacity,
 		Policy:    c.policy.String(),
 		Size:      len(c.m),
@@ -209,8 +209,6 @@ func (c *Cache) Stats() Stats {
 		Misses:    c.misses,
 		Evictions: c.evictions,
 	}
-	c.mu.Unlock()
-	return c.lastStats
 }
 
 // ---- internal helpers (must be called with c.mu held) ----
